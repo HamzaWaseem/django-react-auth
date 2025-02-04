@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from accounts.views import UserDetailAPI, GoogleLogin
+from accounts.views import UserDetailAPI, GoogleLogin, GoogleLoginURLView, GoogleCallbackView, VerifyGoogleConfig
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 from rest_framework import permissions
@@ -33,4 +33,7 @@ urlpatterns = [
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/user/", UserDetailAPI.as_view(), name="user-detail"),
+    path("api/auth/google/url/", GoogleLoginURLView.as_view(), name="google-login-url"),
+    path("api/auth/google/callback/", GoogleCallbackView.as_view(), name="google-callback"),
+    path('api/auth/google/verify-config/', VerifyGoogleConfig.as_view(), name='verify-google-config'),
 ]

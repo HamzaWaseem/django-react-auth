@@ -30,11 +30,22 @@ const getCurrentUser = () => {
   return JSON.parse(localStorage.getItem('user'));
 };
 
+const googleAuth = async (access_token) => {
+  const response = await axios.post(API_URL + 'auth/google/', {
+    access_token: access_token,
+  });
+  if (response.data.access) {
+    localStorage.setItem('user', JSON.stringify(response.data));
+  }
+  return response.data;
+};
+
 const authService = {
   register,
   login,
   logout,
   getCurrentUser,
+  googleAuth,
 };
 
 export default authService;

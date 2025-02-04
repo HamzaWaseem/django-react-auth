@@ -7,7 +7,9 @@ import {
   TextField,
   Button,
   Typography,
+  Divider,
 } from '@mui/material';
+import GoogleIcon from '@mui/icons-material/Google';
 
 const Register = () => {
   const [username, setUsername] = useState('');
@@ -23,6 +25,18 @@ const Register = () => {
       navigate('/login');
     } catch (err) {
       setError('Registration failed. Please try again.');
+    }
+  };
+
+  const handleGoogleSignup = async () => {
+    try {
+      // Get the Google OAuth URL from your backend
+      const response = await fetch('http://localhost:8000/api/auth/google/url/');
+      const data = await response.json();
+      // Redirect to Google's OAuth page
+      window.location.href = data.authorization_url;
+    } catch (err) {
+      setError('Google sign-up failed. Please try again.');
     }
   };
 
@@ -78,6 +92,16 @@ const Register = () => {
             sx={{ mt: 3, mb: 2 }}
           >
             Register
+          </Button>
+          <Divider sx={{ my: 2 }}>OR</Divider>
+          <Button
+            fullWidth
+            variant="outlined"
+            startIcon={<GoogleIcon />}
+            onClick={handleGoogleSignup}
+            sx={{ mt: 1, mb: 2 }}
+          >
+            Sign up with Google
           </Button>
         </Box>
       </Box>
