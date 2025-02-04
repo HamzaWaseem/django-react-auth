@@ -19,10 +19,32 @@ const Register = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await authService.register(username, email, password);
+      if (password.length < 8) {
+        setError('Password must be at least 8 characters long');
+        return;
+      }
+      
+      console.log('Attempting registration with:', { username, email, password });
+      
+      const response = await authService.register(username, email, password);
+      console.log('Registration response:', response);
+      
       navigate('/login');
     } catch (err) {
-      setError('Registration failed. Please try again.');
+      console.error('Registration error details:', err.response?.data);
+      const errorData = err.response?.data || {};
+      
+      const errorMessages = [];
+      Object.keys(errorData).forEach(key => {
+        const error = errorData[key];
+        if (Array.isArray(error)) {
+          errorMessages.push(`${key}: ${error.join(', ')}`);
+        } else if (typeof error === 'string') {
+          errorMessages.push(`${key}: ${error}`);
+        }
+      });
+      
+      setError(errorMessages.join('\n') || 'Registration failed. Please try again.');
     }
   };
 
@@ -40,7 +62,10 @@ const Register = () => {
           Register
         </Typography>
         {error && (
-          <Typography color="error" sx={{ mt: 2 }}>
+          <Typography 
+            color="error" 
+            sx={{ mt: 2, whiteSpace: 'pre-line' }}
+          >
             {error}
           </Typography>
         )}
@@ -70,6 +95,7 @@ const Register = () => {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            helperText="Password must be at least 8 characters long"
           />
           <Button
             type="submit"
