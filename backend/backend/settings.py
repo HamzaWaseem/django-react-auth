@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "allauth.socialaccount.providers.google",
     "accounts",
     "corsheaders",
+    "drf_yasg",
 ]
 
 MIDDLEWARE = [
