@@ -8,6 +8,7 @@ import {
   Button,
   Typography,
 } from '@mui/material';
+import GoogleLogin from './GoogleLogin';
 
 const Register = () => {
   const [username, setUsername] = useState('');
@@ -79,6 +80,7 @@ const Register = () => {
           >
             Register
           </Button>
+          <GoogleLogin />
         </Box>
       </Box>
     </Container>
