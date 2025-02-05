@@ -14,10 +14,11 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     profile = UserProfileSerializer(read_only=True)
+    last_login = serializers.DateTimeField(read_only=True)
     
     class Meta:
         model = User
-        fields = ["id", "username", "email", "profile"]
+        fields = ["id", "username", "email", "profile", "last_login"]
         extra_kwargs = {
             'password': {'write_only': True}
         }

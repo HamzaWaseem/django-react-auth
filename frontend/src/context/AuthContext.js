@@ -17,17 +17,24 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     try {
-      const data = await authService.login(username, password);
-      setUser(data);
-      return data;
+      const response = await authService.login(username, password);
+      if (response) {
+        setUser(response);
+        // Store last login time
+        if (response.last_login) {
+          localStorage.setItem('lastLoginTime', response.last_login);
+        }
+      }
+      return response;
     } catch (error) {
       throw error;
     }
   };
 
   const logout = () => {
-    authService.logout();
     setUser(null);
+    localStorage.removeItem('lastLogin');
+    authService.logout();
   };
 
   return (
@@ -37,4 +44,4 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-export const useAuth = () => useContext(AuthContext); 
+export const useAuth = () => useContext(AuthContext);

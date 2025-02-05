@@ -4,9 +4,7 @@ import axios from 'axios';
 axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 axios.defaults.headers.common['Content-Type'] = 'application/json';
 
-// Add base URL if not configured in axios defaults
-const API_URL = process.env.REACT_APP_API_URL || '';
-
+// Remove unused API_URL variable
 const register = async (username, email, password) => {
   try {
     const response = await axios.post('/api/auth/registration/', {
@@ -24,22 +22,18 @@ const register = async (username, email, password) => {
 };
 
 const login = async (username, password) => {
-  try {
-    const response = await axios.post('/api/auth/login/', {
-      username,
-      password,
-    });
-    
-    if (response.data.access_token) {
-      localStorage.setItem('user', JSON.stringify(response.data));
-      // Set the token in axios defaults for future requests
-      axios.defaults.headers.common['Authorization'] = 'Bearer ' + response.data.access_token;
-    }
-    return response.data;
-  } catch (error) {
-    console.error('Login error:', error.response?.data);
-    throw error;
+  const response = await axios.post('/api/auth/login/', {
+    username,
+    password,
+  });
+  
+  if (response.data) {
+    // Make sure the response includes the last_login field
+    const userData = response.data;
+    localStorage.setItem('user', JSON.stringify(userData));
+    return userData;
   }
+  return null;
 };
 
 const logout = () => {
