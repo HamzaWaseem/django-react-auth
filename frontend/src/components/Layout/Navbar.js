@@ -8,9 +8,19 @@ import {
   Button,
   Box,
 } from '@mui/material';
+import { format } from 'date-fns';
 
 const Navbar = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, lastLogin } = useAuth();
+
+  const formatLastLogin = (dateString) => {
+    try {
+      return format(new Date(dateString), 'MMM dd, yyyy HH:mm');
+    } catch (error) {
+      console.error('Date formatting error:', error);
+      return 'Invalid date';
+    }
+  };
 
   return (
     <AppBar position="static">
@@ -18,9 +28,14 @@ const Navbar = () => {
         <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
           Your App
         </Typography>
-        <Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           {user ? (
             <>
+              {lastLogin && (
+                <Typography variant="body2" sx={{ color: 'white' }}>
+                  Last Login: {formatLastLogin(lastLogin)}
+                </Typography>
+              )}
               <Button color="inherit" onClick={logout}>
                 Logout
               </Button>

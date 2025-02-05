@@ -6,6 +6,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.contrib.auth.models import User
 from rest_framework import serializers
 from .models import UserProfile
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
@@ -53,3 +54,20 @@ class RegisterAPI(generics.CreateAPIView):
 
 class GoogleLogin(SocialLoginView):
     adapter_class = GoogleOAuth2Adapter
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        # Add user data to response
+        data['user'] = {
+            'pk': self.user.id,
+            'username': self.user.username,
+            'email': self.user.email,
+            'first_name': self.user.first_name,
+            'last_name': self.user.last_name,
+            'last_login': self.user.last_login.isoformat() if self.user.last_login else None
+        }
+        return data
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
