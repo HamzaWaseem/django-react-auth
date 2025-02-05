@@ -1,0 +1,13 @@
+INSTALLED_APPS = [
+    // ... existing code ...
+    'corsheaders',
+    // ... existing code ...
+]
+
+# Also add the middleware
+MIDDLEWARE = [
+    // ... existing code ...
+    'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    // ... existing code ...
+] 
