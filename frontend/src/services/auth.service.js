@@ -24,22 +24,14 @@ const register = async (username, email, password) => {
 };
 
 const login = async (username, password) => {
-  try {
-    const response = await axios.post('/api/auth/login/', {
-      username,
-      password,
-    });
-    
-    if (response.data.access_token) {
-      localStorage.setItem('user', JSON.stringify(response.data));
-      // Set the token in axios defaults for future requests
-      axios.defaults.headers.common['Authorization'] = 'Bearer ' + response.data.access_token;
-    }
-    return response.data;
-  } catch (error) {
-    console.error('Login error:', error.response?.data);
-    throw error;
+  const response = await axios.post('/api/token/', {
+    username,
+    password,
+  });
+  if (response.data.access) {
+    localStorage.setItem('token', response.data.access);
   }
+  return response;
 };
 
 const logout = () => {
