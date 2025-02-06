@@ -7,11 +7,13 @@ from django.contrib.auth.models import User
 from rest_framework import serializers
 from .models import UserProfile
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
 
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
-        fields = ['bio', 'date_joined']
+        fields = ['bio', 'date_joined', 'theme_preference']
 
 class UserSerializer(serializers.ModelSerializer):
     profile = UserProfileSerializer(read_only=True)
@@ -31,6 +33,39 @@ class UserSerializer(serializers.ModelSerializer):
         )
         return user
 
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        profile = getattr(self.user, 'profile', None)
+        theme_preference = getattr(profile, 'theme_preference', 'light') if profile else 'light'
+        
+        data['user'] = {
+            'pk': self.user.id,
+            'username': self.user.username,
+            'email': self.user.email,
+            'first_name': self.user.first_name,
+            'last_name': self.user.last_name,
+            'last_login': self.user.last_login.isoformat() if self.user.last_login else None,
+            'theme_preference': theme_preference
+        }
+        return data
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
+
+class UpdateThemePreference(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        theme = request.data.get('theme_preference')
+        if theme in ['light', 'dark']:
+            profile, created = UserProfile.objects.get_or_create(user=user)
+            profile.theme_preference = theme
+            profile.save()
+            return Response({'status': 'success'})
+        return Response({'error': 'Invalid theme'}, status=status.HTTP_400_BAD_REQUEST)
+
 class UserDetailAPI(generics.RetrieveAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = UserSerializer
@@ -46,6 +81,8 @@ class RegisterAPI(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
+            # Create user profile
+            UserProfile.objects.create(user=user)
             return Response({
                 "user": UserSerializer(user).data,
                 "message": "User created successfully"
@@ -58,14 +95,14 @@ class GoogleLogin(SocialLoginView):
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
-        # Add user data to response
         data['user'] = {
             'pk': self.user.id,
             'username': self.user.username,
             'email': self.user.email,
             'first_name': self.user.first_name,
             'last_name': self.user.last_name,
-            'last_login': self.user.last_login.isoformat() if self.user.last_login else None
+            'last_login': self.user.last_login.isoformat() if self.user.last_login else None,
+            'theme_preference': self.user.theme_preference  # Add this line
         }
         return data
 

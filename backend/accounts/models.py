@@ -5,10 +5,16 @@ from django.dispatch import receiver
 
 # Create your models here.
 
+# Add theme preference field to User model through a profile
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     bio = models.TextField(max_length=500, blank=True)
     date_joined = models.DateTimeField(auto_now_add=True)
+    theme_preference = models.CharField(
+        max_length=5,
+        choices=[('light', 'Light'), ('dark', 'Dark')],
+        default='light'
+    )
     
     def __str__(self):
         return self.user.username
