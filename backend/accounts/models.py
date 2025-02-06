@@ -9,6 +9,7 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     bio = models.TextField(max_length=500, blank=True)
     date_joined = models.DateTimeField(auto_now_add=True)
+    last_login_ip = models.CharField(max_length=45, blank=True, null=True)  # IPv6 can be up to 45 chars
     
     def __str__(self):
         return self.user.username

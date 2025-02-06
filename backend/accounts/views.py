@@ -12,7 +12,7 @@ from rest_framework.views import APIView
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
-        fields = ['bio', 'date_joined']
+        fields = ['bio', 'date_joined', 'last_login_ip']
 
 class UserSerializer(serializers.ModelSerializer):
     profile = UserProfileSerializer(read_only=True)
@@ -61,6 +61,17 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         data = super().validate(attrs)
         # Get or create user preferences
         prefs, _ = UserPreferences.objects.get_or_create(user=self.user)
+        # Get IP address from request
+        request = self.context.get('request')
+        ip_address = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', ''))
+        if ',' in ip_address:  # In case of multiple IP addresses, take the first one
+            ip_address = ip_address.split(',')[0].strip()
+        
+        # Save IP address to user profile
+        profile = self.user.profile
+        profile.last_login_ip = ip_address
+        profile.save()
+        
         # Add user data to response
         data['user'] = {
             'pk': self.user.id,
@@ -69,6 +80,9 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             'first_name': self.user.first_name,
             'last_name': self.user.last_name,
             'last_login': self.user.last_login.isoformat() if self.user.last_login else None,
+            'profile': {
+                'last_login_ip': profile.last_login_ip
+            },
             'theme_preference': prefs.theme_preference
         }
         return data
