@@ -21,7 +21,8 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await login(username, password);
+      const response = await login(username, password);
+      // Theme will be handled by AuthContext automatically
       navigate('/');
     } catch (err) {
       const errorMessage = err.response?.data?.detail || 
