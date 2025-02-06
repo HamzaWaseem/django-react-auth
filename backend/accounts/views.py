@@ -61,6 +61,11 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         data = super().validate(attrs)
         # Get or create user preferences
         prefs, _ = UserPreferences.objects.get_or_create(user=self.user)
+        # Get user profile
+        profile = self.user.profile
+        # Update last login IP
+        profile.last_login_ip = self.context['request'].META.get('REMOTE_ADDR')
+        profile.save()
         # Add user data to response
         data['user'] = {
             'pk': self.user.id,
@@ -69,6 +74,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             'first_name': self.user.first_name,
             'last_name': self.user.last_name,
             'last_login': self.user.last_login.isoformat() if self.user.last_login else None,
+            'last_login_ip': profile.last_login_ip,
             'theme_preference': prefs.theme_preference
         }
         return data
