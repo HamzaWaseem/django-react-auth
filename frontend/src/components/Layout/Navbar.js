@@ -7,11 +7,15 @@ import {
   Typography,
   Button,
   Box,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import { format } from 'date-fns';
+import Brightness4Icon from '@mui/icons-material/Brightness4';
+import Brightness7Icon from '@mui/icons-material/Brightness7';
 
 const Navbar = () => {
-  const { user, logout, lastLogin } = useAuth();
+  const { user, logout, lastLogin, theme, toggleTheme } = useAuth();
 
   const formatLastLogin = (dateString) => {
     try {
@@ -29,6 +33,13 @@ const Navbar = () => {
           Your App
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {user && (
+            <Tooltip title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
+              <IconButton color="inherit" onClick={toggleTheme}>
+                {theme === 'light' ? <Brightness4Icon /> : <Brightness7Icon />}
+              </IconButton>
+            </Tooltip>
+          )}
           {user ? (
             <>
               {lastLogin && (

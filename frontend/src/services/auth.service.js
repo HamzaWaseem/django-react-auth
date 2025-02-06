@@ -30,6 +30,11 @@ const login = async (username, password) => {
   });
   if (response.data.access) {
     localStorage.setItem('token', response.data.access);
+    // Fetch user preferences after successful login
+    const userPrefs = await axios.get('/api/user/preferences/', {
+      headers: { Authorization: `Bearer ${response.data.access}` }
+    });
+    localStorage.setItem('theme', userPrefs.data.theme_preference || 'light');
   }
   return response;
 };
@@ -45,11 +50,27 @@ const getCurrentUser = () => {
   return null;
 };
 
+// Add new function to update theme
+const updateTheme = async (theme) => {
+  const token = localStorage.getItem('token');
+  return axios.patch(
+    '/api/user/preferences/',
+    { theme_preference: theme },
+    {
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    }
+  );
+};
+
 const authService = {
   register,
   login,
   logout,
   getCurrentUser,
+  updateTheme,
 };
 
 export default authService;

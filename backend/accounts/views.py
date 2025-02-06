@@ -5,8 +5,9 @@ from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.contrib.auth.models import User
 from rest_framework import serializers
-from .models import UserProfile
+from .models import UserProfile, UserPreferences
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework.views import APIView
 
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
@@ -58,6 +59,8 @@ class GoogleLogin(SocialLoginView):
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
+        # Get or create user preferences
+        prefs, _ = UserPreferences.objects.get_or_create(user=self.user)
         # Add user data to response
         data['user'] = {
             'pk': self.user.id,
@@ -65,9 +68,41 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             'email': self.user.email,
             'first_name': self.user.first_name,
             'last_name': self.user.last_name,
-            'last_login': self.user.last_login.isoformat() if self.user.last_login else None
+            'last_login': self.user.last_login.isoformat() if self.user.last_login else None,
+            'theme_preference': prefs.theme_preference
         }
         return data
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
+
+class UserPreferencesView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        prefs, _ = UserPreferences.objects.get_or_create(user=request.user)
+        return Response({
+            'theme_preference': prefs.theme_preference,
+            'status': 'success'
+        })
+    
+    def patch(self, request):
+        try:
+            prefs, _ = UserPreferences.objects.get_or_create(user=request.user)
+            theme = request.data.get('theme_preference')
+            if theme in ['light', 'dark']:
+                prefs.theme_preference = theme
+                prefs.save()
+                return Response({
+                    'theme_preference': prefs.theme_preference,
+                    'status': 'success'
+                })
+            return Response({
+                'error': 'Invalid theme value',
+                'status': 'error'
+            }, status=400)
+        except Exception as e:
+            return Response({
+                'error': str(e),
+                'status': 'error'
+            }, status=500)
