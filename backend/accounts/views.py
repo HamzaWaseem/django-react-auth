@@ -8,6 +8,9 @@ from rest_framework import serializers
 from .models import UserProfile, UserPreferences
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework.views import APIView
+from django.contrib.auth import logout, authenticate
+from django.utils import timezone
+import os
 
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
@@ -61,14 +64,21 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         data = super().validate(attrs)
         # Get or create user preferences
         prefs, _ = UserPreferences.objects.get_or_create(user=self.user)
+        
+        # Check if account is scheduled for deletion
+        profile = self.user.profile
+        if profile.scheduled_deletion:
+            raise serializers.ValidationError(
+                "Account is scheduled for deletion. Please restore your account to continue."
+            )
+        
         # Get IP address from request
         request = self.context.get('request')
         ip_address = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', ''))
-        if ',' in ip_address:  # In case of multiple IP addresses, take the first one
+        if ',' in ip_address:
             ip_address = ip_address.split(',')[0].strip()
         
         # Save IP address to user profile
-        profile = self.user.profile
         profile.last_login_ip = ip_address
         profile.save()
         
@@ -81,7 +91,8 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             'last_name': self.user.last_name,
             'last_login': self.user.last_login.isoformat() if self.user.last_login else None,
             'profile': {
-                'last_login_ip': profile.last_login_ip
+                'last_login_ip': profile.last_login_ip,
+                'scheduled_deletion': profile.scheduled_deletion.isoformat() if profile.scheduled_deletion else None
             },
             'theme_preference': prefs.theme_preference
         }
@@ -115,6 +126,86 @@ class UserPreferencesView(APIView):
                 'error': 'Invalid theme value',
                 'status': 'error'
             }, status=400)
+        except Exception as e:
+            return Response({
+                'error': str(e),
+                'status': 'error'
+            }, status=500)
+
+class DeleteAccountView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        deletion_type = request.data.get('deletion_type')
+        user = request.user
+
+        if deletion_type == 'temporary':
+            # Set deletion date instead of actually deleting
+            profile = user.profile
+            profile.scheduled_deletion = timezone.now() + timezone.timedelta(
+                days=int(os.getenv('ACCOUNT_DELETION_DAYS', 7))
+            )
+            profile.save()
+            # Logout the user
+            logout(request)
+            return Response({
+                'message': 'Account scheduled for deletion',
+                'restore_before': profile.scheduled_deletion
+            })
+        elif deletion_type == 'permanent':
+            user.delete()
+            return Response({'message': 'Account permanently deleted'})
+        
+        return Response({
+            'error': 'Invalid deletion type',
+            'status': 'error'
+        }, status=400)
+
+class RestoreAccountView(APIView):
+    permission_classes = [permissions.AllowAny]  # Allow anyone to try restoring
+
+    def post(self, request):
+        username = request.data.get('username')
+        password = request.data.get('password')
+
+        if not username or not password:
+            return Response({
+                'error': 'Username and password are required',
+                'status': 'error'
+            }, status=400)
+
+        try:
+            # Try to authenticate the user
+            user = authenticate(username=username, password=password)
+            
+            if not user:
+                return Response({
+                    'error': 'Invalid credentials',
+                    'status': 'error'
+                }, status=400)
+
+            # Check if account is actually scheduled for deletion
+            profile = user.profile
+            if not profile.scheduled_deletion:
+                return Response({
+                    'error': 'Account is not scheduled for deletion',
+                    'status': 'error'
+                }, status=400)
+
+            # Restore the account
+            profile.scheduled_deletion = None
+            profile.save()
+
+            return Response({
+                'message': 'Account restored successfully',
+                'status': 'success'
+            })
+
+        except User.DoesNotExist:
+            return Response({
+                'error': 'User not found',
+                'status': 'error'
+            }, status=404)
         except Exception as e:
             return Response({
                 'error': str(e),

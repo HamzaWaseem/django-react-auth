@@ -8,27 +8,48 @@ import {
   Button,
   Typography,
   Divider,
+  Link,
 } from '@mui/material';
 import GoogleLogin from './GoogleLogin';
+import authService from '../../services/auth.service';
+import RestoreAccount from './RestoreAccount';
 
 const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [showRestoreDialog, setShowRestoreDialog] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login: authLogin } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await login(username, password);
-      // Theme will be handled by AuthContext automatically
+      const response = await authService.login(username, password);
+      await authLogin(username, password);
       navigate('/');
     } catch (err) {
-      const errorMessage = err.response?.data?.detail || 
-                          'Failed to login. Please check your credentials.';
-      setError(errorMessage);
+      if (err.message === 'Account is scheduled for deletion. Please restore your account to continue.') {
+        setShowRestoreDialog(true);
+      } else {
+        const errorMessage = err.response?.data?.detail || 
+                           'Failed to login. Please check your credentials.';
+        setError(errorMessage);
+      }
     }
+  };
+
+  const handleRestoreSuccess = async () => {
+    try {
+      await authLogin(username, password);
+      navigate('/');
+    } catch (error) {
+      setError('Failed to login after restoration. Please try again.');
+    }
+  };
+
+  const handleRecoverClick = () => {
+    setShowRestoreDialog(true);
   };
 
   return (
@@ -77,8 +98,27 @@ const Login = () => {
           </Button>
           <Divider sx={{ my: 2 }}>OR</Divider>
           <GoogleLogin />
+          <Box sx={{ mt: 2, textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Link href="/register" variant="body2">
+              Don't have an account? Register
+            </Link>
+            <Link 
+              component="button"
+              variant="body2"
+              onClick={handleRecoverClick}
+              sx={{ color: 'primary.main' }}
+            >
+              Recover Deleted Account
+            </Link>
+          </Box>
         </Box>
       </Box>
+
+      <RestoreAccount
+        open={showRestoreDialog}
+        onClose={() => setShowRestoreDialog(false)}
+        onSuccess={handleRestoreSuccess}
+      />
     </Container>
   );
 };

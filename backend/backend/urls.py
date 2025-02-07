@@ -5,6 +5,8 @@ from accounts.views import UserDetailAPI, GoogleLogin, CustomTokenObtainPairView
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 from rest_framework import permissions
+from accounts.views import DeleteAccountView, RestoreAccountView
+
 
 schema_view = get_schema_view(
     openapi.Info(
@@ -38,4 +40,7 @@ urlpatterns = [
     # User Details URL
     path('api/user/', UserDetailAPI.as_view(), name='user-detail'),
     path('api/user/preferences/', UserPreferencesView.as_view(), name='user-preferences'),
+    path('api/user/delete/', DeleteAccountView.as_view(), name='delete-account'),
+    path('api/user/restore/', RestoreAccountView.as_view(), name='restore-account'),
+
 ]

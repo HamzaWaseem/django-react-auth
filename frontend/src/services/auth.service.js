@@ -4,9 +4,6 @@ import axios from 'axios';
 axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 axios.defaults.headers.common['Content-Type'] = 'application/json';
 
-// Add base URL if not configured in axios defaults
-const API_URL = process.env.REACT_APP_API_URL || '';
-
 const register = async (username, email, password) => {
   try {
     const response = await axios.post('/api/auth/registration/', {
@@ -15,7 +12,7 @@ const register = async (username, email, password) => {
       password1: password,
       password2: password,
     });
-    console.log('Registration success:', response.data);
+    console.log('Registration success:', response.data)
     return response.data;
   } catch (error) {
     console.error('Registration error:', error.response?.data);
@@ -29,6 +26,7 @@ const login = async (username, password) => {
       username,
       password,
     });
+    
     if (response.data.access) {
       localStorage.setItem('token', response.data.access);
       // Set the authorization header for future requests
@@ -73,12 +71,57 @@ const updateTheme = async (theme) => {
   );
 };
 
+const deleteAccount = async (deletionType) => {
+  const token = localStorage.getItem('token');
+  return axios.post(
+    '/api/user/delete/',
+    { deletion_type: deletionType },
+    {
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    }
+  );
+};
+
+const restoreAccount = async (username, password) => {
+  try {
+    // Make the restore request directly with credentials
+    const restoreResponse = await axios.post(
+      '/api/user/restore/',
+      {
+        username,
+        password
+      },
+      {
+        headers: { 
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    // After successful restore, try to login
+    if (restoreResponse.data.message === 'Account restored successfully') {
+      const loginResponse = await login(username, password);
+      return loginResponse;
+    }
+    
+    return restoreResponse.data;
+  } catch (error) {
+    console.error('Restore account error:', error);
+    throw error;
+  }
+};
+
 const authService = {
   register,
   login,
   logout,
   getCurrentUser,
   updateTheme,
+  deleteAccount,
+  restoreAccount,
 };
 
 export default authService;
