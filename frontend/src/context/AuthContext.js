@@ -32,6 +32,7 @@ export const AuthProvider = ({ children }) => {
       setUser(response.data.user);
       localStorage.setItem('user', JSON.stringify(response.data.user));
       
+      // Store last login time from the response
       if (response.data.user.last_login) {
         setLastLogin(response.data.user.last_login);
         localStorage.setItem('lastLogin', response.data.user.last_login);

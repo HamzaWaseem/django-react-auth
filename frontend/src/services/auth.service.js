@@ -24,19 +24,27 @@ const register = async (username, email, password) => {
 };
 
 const login = async (username, password) => {
-  const response = await axios.post('/api/token/', {
-    username,
-    password,
-  });
-  if (response.data.access) {
-    localStorage.setItem('token', response.data.access);
-    // Fetch user preferences after successful login
-    const userPrefs = await axios.get('/api/user/preferences/', {
-      headers: { Authorization: `Bearer ${response.data.access}` }
+  try {
+    const response = await axios.post('/api/token/', {
+      username,
+      password,
     });
-    localStorage.setItem('theme', userPrefs.data.theme_preference || 'light');
+    if (response.data.access) {
+      localStorage.setItem('token', response.data.access);
+      // Set the authorization header for future requests
+      axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.access}`;
+      
+      // Fetch user preferences after successful login
+      const userPrefs = await axios.get('/api/user/preferences/', {
+        headers: { Authorization: `Bearer ${response.data.access}` }
+      });
+      localStorage.setItem('theme', userPrefs.data.theme_preference || 'light');
+    }
+    return response;
+  } catch (error) {
+    console.error('Login error:', error);
+    throw error;
   }
-  return response;
 };
 
 const logout = () => {
