@@ -8,6 +8,49 @@ from rest_framework import serializers
 from .models import UserProfile, UserPreferences
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework.views import APIView
+from django.utils import timezone
+from datetime import timedelta
+from django.conf import settings
+import os
+
+# Add these new views
+class AccountDeletionView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        deletion_type = request.data.get('deletion_type')
+        user = request.user
+
+        if deletion_type == 'temporary':
+            # Get deletion days from environment variable or default to 7
+            deletion_days = int(os.getenv('ACCOUNT_DELETION_DAYS', 7))
+            deletion_date = timezone.now() + timedelta(days=deletion_days)
+            user.profile.scheduled_deletion = deletion_date
+            user.profile.save()
+            return Response({
+                'message': f'Account scheduled for deletion in {deletion_days} days',
+                'deletion_date': deletion_date
+            })
+        elif deletion_type == 'permanent':
+            user.delete()
+            return Response({'message': 'Account permanently deleted'})
+        else:
+            return Response({'error': 'Invalid deletion type'}, status=400)
+
+class RestoreAccountView(APIView):
+    permission_classes = [permissions.AllowAny]  # Allow anyone to restore account
+
+    def post(self, request):
+        username = request.data.get('username')
+        try:
+            user = User.objects.get(username=username)
+            if user.profile.scheduled_deletion:
+                user.profile.scheduled_deletion = None
+                user.profile.save()
+                return Response({'message': 'Account restored successfully'})
+            return Response({'error': 'Account is not scheduled for deletion'}, status=400)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=404)
 
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
@@ -59,6 +102,13 @@ class GoogleLogin(SocialLoginView):
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
+        
+        # Check if account is temporarily deleted
+        if self.user.profile.scheduled_deletion:
+            raise serializers.ValidationError({
+                'detail': 'Account is temporarily deleted'
+            })
+            
         # Get or create user preferences
         prefs, _ = UserPreferences.objects.get_or_create(user=self.user)
         # Get IP address from request
