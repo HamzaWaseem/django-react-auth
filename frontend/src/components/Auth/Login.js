@@ -23,6 +23,7 @@ const Login = () => {
   const [error, setError] = useState('');
   const [recoveryDialogOpen, setRecoveryDialogOpen] = useState(false);
   const [recoveryUsername, setRecoveryUsername] = useState('');
+  const [remainingAttempts, setRemainingAttempts] = useState(null);
   const navigate = useNavigate();
   const { login } = useAuth();
 
@@ -32,10 +33,22 @@ const Login = () => {
       await login(username, password);
       navigate('/');
     } catch (error) {
-      if (error.response?.data?.detail === 'Account is temporarily deleted') {
-        setError('This account is temporarily deleted. Use the recovery option to restore it.');
+      const errorMessage = error.response?.data?.detail;
+      if (errorMessage) {
+        if (errorMessage.includes('attempts remaining')) {
+          const attempts = errorMessage.match(/\d+/)[0];
+          setRemainingAttempts(attempts);
+          setError(`Invalid credentials. ${attempts} attempts remaining.`);
+        } else if (errorMessage.includes('Account is locked')) {
+          setError(errorMessage);
+          setRemainingAttempts(null);
+        } else if (errorMessage === 'Account is temporarily deleted') {
+          setError('This account is temporarily deleted. Use the recovery option to restore it.');
+        } else {
+          setError(errorMessage);
+        }
       } else {
-        setError('Invalid username or password');
+        setError('An error occurred. Please try again.');
       }
     }
   };

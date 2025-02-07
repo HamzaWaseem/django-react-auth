@@ -10,7 +10,9 @@ class UserProfile(models.Model):
     bio = models.TextField(max_length=500, blank=True)
     date_joined = models.DateTimeField(auto_now_add=True)
     last_login_ip = models.CharField(max_length=45, blank=True, null=True)
-    scheduled_deletion = models.DateTimeField(null=True, blank=True)  # Add this field
+    scheduled_deletion = models.DateTimeField(null=True, blank=True)
+    failed_login_attempts = models.IntegerField(default=0)
+    lockout_until = models.DateTimeField(null=True, blank=True)
     
     def __str__(self):
         return self.user.username

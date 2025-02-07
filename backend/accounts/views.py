@@ -99,43 +99,95 @@ class RegisterAPI(generics.CreateAPIView):
 class GoogleLogin(SocialLoginView):
     adapter_class = GoogleOAuth2Adapter
 
+from rest_framework_simplejwt.views import TokenObtainPairView
+from django.utils import timezone
+from datetime import timedelta
+from django.contrib.auth.models import User
+from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
-        data = super().validate(attrs)
+        # Get max attempts and lockout duration from environment variables
+        MAX_LOGIN_ATTEMPTS = int(os.getenv('MAX_LOGIN_ATTEMPTS', 5))
+        LOCKOUT_DURATION = int(os.getenv('LOCKOUT_DURATION', 2))  # in minutes
         
-        # Check if account is temporarily deleted
-        if self.user.profile.scheduled_deletion:
-            raise serializers.ValidationError({
-                'detail': 'Account is temporarily deleted'
-            })
+        try:
+            user = User.objects.get(username=attrs['username'])
             
-        # Get or create user preferences
-        prefs, _ = UserPreferences.objects.get_or_create(user=self.user)
-        # Get IP address from request
-        request = self.context.get('request')
-        ip_address = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', ''))
-        if ',' in ip_address:  # In case of multiple IP addresses, take the first one
-            ip_address = ip_address.split(',')[0].strip()
-        
-        # Save IP address to user profile
-        profile = self.user.profile
-        profile.last_login_ip = ip_address
-        profile.save()
-        
-        # Add user data to response
-        data['user'] = {
-            'pk': self.user.id,
-            'username': self.user.username,
-            'email': self.user.email,
-            'first_name': self.user.first_name,
-            'last_name': self.user.last_name,
-            'last_login': self.user.last_login.isoformat() if self.user.last_login else None,
-            'profile': {
-                'last_login_ip': profile.last_login_ip
-            },
-            'theme_preference': prefs.theme_preference
-        }
-        return data
+            # Check if account is locked
+            if user.profile.lockout_until and user.profile.lockout_until > timezone.now():
+                time_remaining = (user.profile.lockout_until - timezone.now()).seconds // 60
+                raise serializers.ValidationError({
+                    'detail': f'Account is locked. Try again in {time_remaining} minutes.'
+                })
+
+            # Check if password is correct
+            if not user.check_password(attrs['password']):
+                # Increment failed attempts
+                user.profile.failed_login_attempts += 1
+                
+                # Check if max attempts reached
+                if user.profile.failed_login_attempts >= MAX_LOGIN_ATTEMPTS:
+                    user.profile.lockout_until = timezone.now() + timedelta(minutes=LOCKOUT_DURATION)
+                    user.profile.failed_login_attempts = 0  # Reset counter
+                    user.profile.save()
+                    raise serializers.ValidationError({
+                        'detail': f'Too many failed attempts. Account locked for {LOCKOUT_DURATION} minutes.'
+                    })
+                user.profile.save()
+                attempts_left = MAX_LOGIN_ATTEMPTS - user.profile.failed_login_attempts
+                raise serializers.ValidationError({
+                    'detail': f'Invalid credentials. {attempts_left} attempts remaining.'
+                })
+
+            # If we get here, password is correct
+            data = super().validate(attrs)
+            
+            # Reset failed attempts on successful login
+            user.profile.failed_login_attempts = 0
+            user.profile.lockout_until = None
+            user.profile.save()
+            
+            # Check for scheduled deletion
+            if user.profile.scheduled_deletion:
+                raise serializers.ValidationError({
+                    'detail': 'Account is temporarily deleted'
+                })
+            
+            # Get or create user preferences
+            prefs, _ = UserPreferences.objects.get_or_create(user=user)
+            
+            # Get IP address from request
+            request = self.context.get('request')
+            ip_address = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', ''))
+            if ',' in ip_address:
+                ip_address = ip_address.split(',')[0].strip()
+            
+            # Save IP address to user profile
+            profile = user.profile
+            profile.last_login_ip = ip_address
+            profile.save()
+            
+            # Add user data to response
+            data['user'] = {
+                'pk': user.id,
+                'username': user.username,
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'last_login': user.last_login.isoformat() if user.last_login else None,
+                'profile': {
+                    'last_login_ip': profile.last_login_ip
+                },
+                'theme_preference': prefs.theme_preference
+            }
+            return data
+                
+        except User.DoesNotExist:
+            raise serializers.ValidationError({
+                'detail': 'Invalid credentials'
+            })
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
