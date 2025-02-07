@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import authService from '../../services/auth.service';  // Add this import
 import {
   Container,
   Box,
@@ -8,6 +9,11 @@ import {
   Button,
   Typography,
   Divider,
+  Dialog,              // Add these
+  DialogActions,       // Material-UI
+  DialogContent,       // Dialog
+  DialogContentText,   // components
+  DialogTitle,         // imports
 } from '@mui/material';
 import GoogleLogin from './GoogleLogin';
 
@@ -15,19 +21,32 @@ const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [recoveryDialogOpen, setRecoveryDialogOpen] = useState(false);
+  const [recoveryUsername, setRecoveryUsername] = useState('');
   const navigate = useNavigate();
   const { login } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await login(username, password);
-      // Theme will be handled by AuthContext automatically
+      await login(username, password);
       navigate('/');
-    } catch (err) {
-      const errorMessage = err.response?.data?.detail || 
-                          'Failed to login. Please check your credentials.';
-      setError(errorMessage);
+    } catch (error) {
+      if (error.response?.data?.detail === 'Account is temporarily deleted') {
+        setError('This account is temporarily deleted. Use the recovery option to restore it.');
+      } else {
+        setError('Invalid username or password');
+      }
+    }
+  };
+
+  const handleRecovery = async () => {
+    try {
+      await authService.restoreAccount(recoveryUsername);
+      setRecoveryDialogOpen(false);
+      setError('Account restored successfully. You can now login.');
+    } catch (error) {
+      setError('Failed to restore account. Please try again.');
     }
   };
 
@@ -79,6 +98,37 @@ const Login = () => {
           <GoogleLogin />
         </Box>
       </Box>
+      
+      <Box sx={{ mt: 2 }}>
+        <Button
+          fullWidth
+          variant="text"
+          onClick={() => setRecoveryDialogOpen(true)}
+        >
+          Recover Deleted Account
+        </Button>
+      </Box>
+
+      <Dialog open={recoveryDialogOpen} onClose={() => setRecoveryDialogOpen(false)}>
+        <DialogTitle>Recover Deleted Account</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Enter your username to restore your temporarily deleted account.
+          </DialogContentText>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Username"
+            fullWidth
+            value={recoveryUsername}
+            onChange={(e) => setRecoveryUsername(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRecoveryDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleRecovery}>Recover Account</Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };
