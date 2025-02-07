@@ -1,7 +1,14 @@
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from accounts.views import UserDetailAPI, GoogleLogin, CustomTokenObtainPairView
+from accounts.views import (
+    UserDetailAPI, 
+    GoogleLogin, 
+    CustomTokenObtainPairView, 
+    UserPreferencesView,
+    AccountDeletionView,    # Add this
+    RestoreAccountView      # Add this
+)
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 from rest_framework import permissions
@@ -37,4 +44,9 @@ urlpatterns = [
     
     # User Details URL
     path('api/user/', UserDetailAPI.as_view(), name='user-detail'),
+    path('api/user/preferences/', UserPreferencesView.as_view(), name='user-preferences'),
+
+    # Add api/ prefix to maintain consistency with other endpoints
+    path('api/user/delete-account/', AccountDeletionView.as_view(), name='delete-account'),
+    path('api/user/restore-account/', RestoreAccountView.as_view(), name='restore-account'),
 ]
