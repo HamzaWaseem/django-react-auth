@@ -41,7 +41,13 @@ const login = async (username, password) => {
     }
     return response;
   } catch (error) {
-    console.error('Login error:', error);
+    if (error.response?.data?.detail) {
+      // Check if detail is an array and take the first message
+      const detail = Array.isArray(error.response.data.detail) 
+        ? error.response.data.detail[0] 
+        : error.response.data.detail;
+      throw new Error(detail);
+    }
     throw error;
   }
 };

@@ -101,41 +101,86 @@ class GoogleLogin(SocialLoginView):
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
-        data = super().validate(attrs)
-        
-        # Check if account is temporarily deleted
-        if self.user.profile.scheduled_deletion:
+        try:
+            # First, try to get the user without validation
+            username = attrs.get('username')
+            try:
+                user = User.objects.get(username=username)
+            except User.DoesNotExist:
+                raise serializers.ValidationError({
+                    'detail': 'No active account found with the given credentials'
+                })
+
+            # Check if account is locked
+            if user.profile.account_locked_until and user.profile.account_locked_until > timezone.now():
+                time_remaining = (user.profile.account_locked_until - timezone.now()).seconds
+                raise serializers.ValidationError({
+                    'detail': f'Account is locked. Try again in {time_remaining} seconds.'
+                })
+
+            # Handle password validation and attempts
+            try:
+                # Try to authenticate with parent class
+                data = super().validate(attrs)
+                
+                # If we get here, authentication was successful
+                user.profile.failed_login_attempts = 0
+                user.profile.account_locked_until = None
+                user.profile.save()
+
+                # Continue with the rest of your existing validation
+                if user.profile.scheduled_deletion:
+                    raise serializers.ValidationError({
+                        'detail': 'Account is temporarily deleted'
+                    })
+                
+                # Get or create user preferences
+                prefs, _ = UserPreferences.objects.get_or_create(user=user)
+                
+                # Add user data to response
+                data['user'] = {
+                    'pk': user.id,
+                    'username': user.username,
+                    'email': user.email,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name,
+                    'last_login': user.last_login.isoformat() if user.last_login else None,
+                    'profile': {
+                        'last_login_ip': user.profile.last_login_ip
+                    },
+                    'theme_preference': prefs.theme_preference
+                }
+                return data
+
+            except Exception as e:
+                # Handle failed password attempt
+                max_attempts = int(os.getenv('MAX_LOGIN_ATTEMPTS', 5))
+                lock_duration = int(os.getenv('ACCOUNT_LOCK_DURATION', 2))
+                
+                user.profile.failed_login_attempts += 1
+                user.profile.last_failed_login = timezone.now()
+                
+                attempts_left = max_attempts - user.profile.failed_login_attempts
+                
+                if user.profile.failed_login_attempts >= max_attempts:
+                    user.profile.account_locked_until = timezone.now() + timedelta(minutes=lock_duration)
+                    user.profile.failed_login_attempts = 0
+                    user.profile.save()
+                    raise serializers.ValidationError({
+                        'detail': f'Account locked for {lock_duration} minutes due to too many failed attempts.'
+                    })
+                
+                user.profile.save()
+                raise serializers.ValidationError({
+                    'detail': f'Invalid password. {attempts_left} attempts remaining before account lock.'
+                })
+
+        except serializers.ValidationError as e:
+            raise e
+        except Exception as e:
             raise serializers.ValidationError({
-                'detail': 'Account is temporarily deleted'
+                'detail': 'An error occurred during authentication'
             })
-            
-        # Get or create user preferences
-        prefs, _ = UserPreferences.objects.get_or_create(user=self.user)
-        # Get IP address from request
-        request = self.context.get('request')
-        ip_address = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', ''))
-        if ',' in ip_address:  # In case of multiple IP addresses, take the first one
-            ip_address = ip_address.split(',')[0].strip()
-        
-        # Save IP address to user profile
-        profile = self.user.profile
-        profile.last_login_ip = ip_address
-        profile.save()
-        
-        # Add user data to response
-        data['user'] = {
-            'pk': self.user.id,
-            'username': self.user.username,
-            'email': self.user.email,
-            'first_name': self.user.first_name,
-            'last_name': self.user.last_name,
-            'last_login': self.user.last_login.isoformat() if self.user.last_login else None,
-            'profile': {
-                'last_login_ip': profile.last_login_ip
-            },
-            'theme_preference': prefs.theme_preference
-        }
-        return data
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer

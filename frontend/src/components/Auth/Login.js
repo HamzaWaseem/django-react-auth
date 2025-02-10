@@ -32,11 +32,8 @@ const Login = () => {
       await login(username, password);
       navigate('/');
     } catch (error) {
-      if (error.response?.data?.detail === 'Account is temporarily deleted') {
-        setError('This account is temporarily deleted. Use the recovery option to restore it.');
-      } else {
-        setError('Invalid username or password');
-      }
+      // Set the error message directly from the backend
+      setError(error.message);
     }
   };
 

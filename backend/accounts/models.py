@@ -11,6 +11,9 @@ class UserProfile(models.Model):
     date_joined = models.DateTimeField(auto_now_add=True)
     last_login_ip = models.CharField(max_length=45, blank=True, null=True)
     scheduled_deletion = models.DateTimeField(null=True, blank=True)  # Add this field
+    failed_login_attempts = models.IntegerField(default=0)
+    last_failed_login = models.DateTimeField(null=True, blank=True)
+    account_locked_until = models.DateTimeField(null=True, blank=True)
     
     def __str__(self):
         return self.user.username

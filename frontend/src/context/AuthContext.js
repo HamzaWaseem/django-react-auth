@@ -46,6 +46,7 @@ export const AuthProvider = ({ children }) => {
 
       return response.data;
     } catch (error) {
+      // Pass the error through without modification
       throw error;
     }
   };
@@ -90,4 +91,4 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-export const useAuth = () => useContext(AuthContext); 
+export const useAuth = () => useContext(AuthContext);
